@@ -40,6 +40,8 @@ def get_play_indices(card: Card, side: str) -> list[int]:
     soup = BeautifulSoup(card_html, 'html.parser')
     play_group_list: list[PlayGroup] = []
     anki_play_tag_total = len(re.findall(rf'<{anki_play_tag_name}>\d+</{anki_play_tag_name}>', card_html))
+    if not anki_play_tag_total:
+        return []
     only_one_tags = soup.findAll(contains_anki_play_tag)
     if not only_one_tags:
         play_all_group = PlayAllGroup(list(range(anki_play_tag_total)))
