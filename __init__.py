@@ -85,8 +85,8 @@ def get_play_indices(card: Card, side: str) -> list[int]:
         if play_group_list[-1].items[-1] < anki_play_tag_total - 1:
             play_all_group = PlayAllGroup(list(range(play_group_list[-1].items[-1] + 1, anki_play_tag_total)))
             play_group_list.append(play_all_group)
-    play_group_manager = PlayGroupManager(play_group_list)
-    return play_group_manager.get_items_to_play()
+    play_group_collection = PlayGroupCollection(play_group_list)
+    return play_group_collection.get_play_indices()
 
 
 def on_av_player_will_play_tags(tags: list[anki.sound.AVTag], side: str, context: Any) -> None:
