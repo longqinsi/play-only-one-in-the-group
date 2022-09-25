@@ -1,6 +1,7 @@
 # play-only-one-in-the-group
 An Anki Addon that allows to play only one item in a group during autoplaying
 Wrap a group of fields in a custom tag <only-one> in order to play only one item in the group.
+
 In the sample below, the media files in the fiels hobby1, hobby8 and hobby9 will always be 
 played during the autoplay time when the card is loaded, but only one of hobby2, hobby3, hobby4
 and only one of hobby5, hobby6 and hobby7 will be played. Which one in a group will be played is
