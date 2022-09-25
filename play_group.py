@@ -1,15 +1,6 @@
-import sys
-import re
 import random
 
 from abc import ABC, abstractmethod
-from typing import Any
-import anki
-from aqt import gui_hooks
-from aqt.reviewer import Reviewer
-from aqt.sound import av_player
-from aqt.webview import AnkiWebView
-from anki.cards import Card
 
 
 class PlayGroup(ABC):
