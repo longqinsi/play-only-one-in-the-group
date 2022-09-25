@@ -9,7 +9,6 @@ from aqt import gui_hooks
 from aqt.browser.previewer import Previewer
 from aqt.clayout import CardLayout
 from aqt.reviewer import Reviewer
-from aqt.sound import av_player
 from bs4 import BeautifulSoup
 from bs4.element import Tag
 
@@ -20,30 +19,6 @@ def get_play_indices_attr_name(status: str) -> str:
     if status != 'question' and status != 'answer':
         raise ValueError(f"status '{status}' is not 'question' or 'answer'")
     return f'{status}_play_indices'
-
-
-def on_webview_did_receive_js_message(handled: tuple[bool, Any], pycmd: str, context: Any) -> tuple[bool, Any]:
-    if not pycmd or not pycmd.__contains__(':') or pycmd.endswith(':'):
-        return handled
-
-    command, para_str = pycmd.split(":", 1)
-    if command == 'play':
-        if not isinstance(context, Reviewer):
-            # not reviewer, pass on message
-            return handled
-        status_first_letter, idx_str = para_str.split(":", 1)
-        idx = int(idx_str)
-        status = "question" if status_first_letter == 'q' else "answer"
-        card = context.card
-        play_indices: list[int] = getattr(card, get_play_indices_attr_name(status))
-        if play_indices:
-            new_idx = play_indices.index(idx)
-            av_tags = card.question_av_tags() if status_first_letter == "q" else card.answer_av_tags()
-            av_player.play_tags([av_tags[new_idx]])
-            return True, None
-        return handled
-    else:
-        return handled
 
 
 def get_play_indices(card: Card, side: str) -> list[int]:
@@ -89,10 +64,21 @@ def get_play_indices(card: Card, side: str) -> list[int]:
     return play_group_collection.get_play_indices()
 
 
+def get_play_list(tags: list[anki.sound.AVTag], side: str, card: Card) -> list[int]:
+    if side not in ['question', 'answer']:
+        raise ValueError(f"{side} is invalid for side, which must be either 'question' nor 'answer'.")
+    play_indices = sorted(get_play_indices(card, side))
+    if len(play_indices) == len(tags):
+        return play_indices
+    new_tags = [tags[idx] for idx in play_indices]
+    tags.clear()
+    tags.extend(new_tags)
+    setattr(card, get_play_indices_attr_name(side), play_indices)
+    return play_indices
+
+
 def on_av_player_will_play_tags(tags: list[anki.sound.AVTag], side: str, context: Any) -> None:
     card: Optional[Card] = None
-    if side not in ['question', 'answer']:
-        return
     if not tags:
         return
     if isinstance(context, CardLayout):
@@ -103,14 +89,7 @@ def on_av_player_will_play_tags(tags: list[anki.sound.AVTag], side: str, context
         card = context.card()
     if not card:
         return
-    play_indices = sorted(get_play_indices(card, side))
-    setattr(card, get_play_indices_attr_name(side), play_indices)
-    if len(play_indices) == len(tags):
-        return
-    new_tags = [tags[idx] for idx in play_indices]
-    tags.clear()
-    tags.extend(new_tags)
-    pass
+    get_play_list(tags, side, card)
 
 
 def on_card_will_show(text: str, card: Card, _kind: str) -> str:
@@ -120,13 +99,13 @@ def on_card_will_show(text: str, card: Card, _kind: str) -> str:
     if hasattr(card, question_play_indices_attr_name):
         question_play_indices = getattr(card, question_play_indices_attr_name)
     else:
-        question_play_indices = list(range(len(card.question_av_tags())))
+        question_play_indices = get_play_list(card.question_av_tags(), 'question', card)
 
     answer_play_indices: list[int]
     if hasattr(card, answer_play_indices_attr_name):
         answer_play_indices = getattr(card, answer_play_indices_attr_name)
     else:
-        answer_play_indices = list(range(len(card.answer_av_tags())))
+        answer_play_indices = get_play_list(card.answer_av_tags(), "answer", card)
 
     if not question_play_indices and not answer_play_indices:
         return text
