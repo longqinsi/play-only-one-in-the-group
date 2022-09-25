@@ -23,7 +23,7 @@ played again.
 
 <div id='debugInfo'></div>
 <script>
-    log(`{{hobby8}}`);
+    console.log(`{{hobby8}}`);
 </script>
 
 <div style='font-family: "Arial"; font-size: 20px;'>hobby9:{{hobby9}}</div>
