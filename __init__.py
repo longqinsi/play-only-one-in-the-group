@@ -77,6 +77,7 @@ def on_state_shortcuts_will_change(state: str, shortcuts: list[tuple[str, Callab
     if state != "review":
         return
     is_reviewer_replay_audio_replaced = False
+    reviewer: Optional[Reviewer] = None
     for idx, (key, method) in enumerate(shortcuts):
         if str(key).lower() in ['r', 'f5']:
             reviewer = getattr(method, '__self__')
@@ -85,6 +86,8 @@ def on_state_shortcuts_will_change(state: str, shortcuts: list[tuple[str, Callab
                     reviewer.replayAudio = types.MethodType(replay_audio_stub, reviewer)
                     is_reviewer_replay_audio_replaced = True
                 shortcuts[idx] = key, reviewer.replayAudio
+    if reviewer:
+        shortcuts.append(('Ctrl+R', reviewer.replayAudio))
 
 
 def on_card_will_show(text: str, _card: Card, _kind: str) -> str:
