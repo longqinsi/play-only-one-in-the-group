@@ -2,7 +2,6 @@ import types
 from typing import Optional, Union, Callable
 
 import anki
-from PyQt6.QtCore import Qt
 from anki.sound import SoundOrVideoTag, AVTag, TTSTag
 from aqt import gui_hooks
 from aqt.browser.previewer import Previewer
@@ -70,23 +69,41 @@ def on_av_player_will_play_tags(tags: list[anki.sound.AVTag], side: str, context
         setattr(context, _REPLAY_AUDIO_STUB_METHOD_NAME, context.replayAudio)
 
 
+def replay_audio_stub(self) -> None:
+    getattr(self, _REPLAY_AUDIO_STUB_METHOD_NAME)()
+
+
 def on_state_shortcuts_will_change(state: str, shortcuts: list[tuple[str, Callable]]) -> None:
     if state != "review":
         return
     is_reviewer_replay_audio_replaced = False
     for idx, (key, method) in enumerate(shortcuts):
-        if isinstance(key, str) and key.lower() == 'r' or \
-                isinstance(key, Qt.Key) and key == Qt.Key.Key_F5:
+        if str(key).lower() in ['r', 'f5']:
             reviewer = getattr(method, '__self__')
             if isinstance(reviewer, Reviewer):
-                def replay_audio_stub(self) -> None:
-                    getattr(self, _REPLAY_AUDIO_STUB_METHOD_NAME)()
-
                 if not is_reviewer_replay_audio_replaced:
                     reviewer.replayAudio = types.MethodType(replay_audio_stub, reviewer)
                     is_reviewer_replay_audio_replaced = True
                 shortcuts[idx] = key, reviewer.replayAudio
 
 
+def on_card_will_show(text: str, _card: Card, _kind: str) -> str:
+    text += """
+<script>
+(() => {
+    for (let only_one of document.getElementsByTagName('only-one')) {
+        if(only_one.getElementsByClassName('replay-button soundLink').length > 1){
+            only_one.style.display = 'block';
+            only_one.style.border = '1px solid black';
+            only_one.style.margin = '10px';
+        }
+    }
+})();
+</script>
+"""
+    return text
+
+
 gui_hooks.av_player_will_play_tags.append(on_av_player_will_play_tags)
 gui_hooks.state_shortcuts_will_change.append(on_state_shortcuts_will_change)
+gui_hooks.card_will_show.append(on_card_will_show)

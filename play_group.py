@@ -109,4 +109,3 @@ class PlayGroupCollection:
                 play_group_list.append(play_all_group)
         play_group_collection = PlayGroupCollection(play_group_list)
         return play_group_collection
-
