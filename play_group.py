@@ -6,6 +6,13 @@ from typing import Any
 
 from anki.cards import Card
 from bs4 import Tag, BeautifulSoup
+from enum import Enum, auto
+
+
+class FetchMode(Enum):
+    CURRENT = auto()
+    NEXT = auto()
+    PREVIOUS = auto()
 
 
 class PlayGroup(ABC):
@@ -15,7 +22,7 @@ class PlayGroup(ABC):
         self.items = items
 
     @abstractmethod
-    def get_play_indices(self) -> list[int]:
+    def get_play_indices(self, fetch_mode: FetchMode = FetchMode.CURRENT) -> list[int]:
         """get the items to play from the group"""
         pass
 
@@ -28,14 +35,20 @@ class OnlyOneGroup(PlayGroup):
 
     def __init__(self, items: list[int]):
         super().__init__(items)
-        self._next_idx = random.randint(0, len(items) - 1)
+        self._idx = 0
 
-    def get_play_indices(self) -> list[int]:
+    def get_play_indices(self, fetch_mode: FetchMode = FetchMode.CURRENT) -> list[int]:
         """randomly fetches an item from the group"""
-        result = [self.items[self._next_idx]]
-        if len(self.items) > 1:
-            self._next_idx = self._next_idx + 1 if self._next_idx < len(self.items) - 1 else 0
-        return result
+        if fetch_mode == FetchMode.CURRENT:
+            pass
+        elif fetch_mode == FetchMode.NEXT:
+            self._idx = self._idx + 1 if self._idx < len(self.items) - 1 else 0
+        elif fetch_mode == FetchMode.PREVIOUS:
+            self._idx = self._idx - 1 if self._idx > 0 else len(self.items) - 1
+        else:
+            raise ValueError(f"The value '{fetch_mode}' is invalid for the parameter fetch_mode, "
+                             f"which must be one of FetchMode.CURRENT, FetchMode.NEXT or FetchMode.PREVIOUS.")
+        return self.items[self._idx:self._idx + 1]
 
 
 class PlayAllGroup(PlayGroup):
@@ -44,7 +57,7 @@ class PlayAllGroup(PlayGroup):
     def __init__(self, items: list[int]):
         super().__init__(items)
 
-    def get_play_indices(self) -> list[int]:
+    def get_play_indices(self, fetch_mode: FetchMode = FetchMode.CURRENT) -> list[int]:
         return self.items
 
 
@@ -55,13 +68,13 @@ class PlayGroupCollection:
     def append(self, play_group: PlayGroup) -> None:
         self.items.append(play_group)
 
-    def get_play_indices(self) -> list[int]:
+    def get_play_indices(self, fetch_mode: FetchMode = FetchMode.CURRENT) -> list[int]:
         if not self.items:
             return []
         result = []
         play_group: PlayGroup
         for play_group in self.items:
-            result.extend(play_group.get_play_indices())
+            result.extend(play_group.get_play_indices(fetch_mode))
         return result
 
     @classmethod

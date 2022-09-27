@@ -1,4 +1,5 @@
 import types
+from pathlib import Path
 from typing import Optional, Union, Callable
 
 import anki
@@ -6,28 +7,70 @@ from anki.sound import SoundOrVideoTag, AVTag, TTSTag
 from aqt import gui_hooks
 from aqt.browser.previewer import Previewer
 from aqt.clayout import CardLayout
+from aqt.main import MainWebView
 from aqt.reviewer import Reviewer
 
 from .play_group import *
 
-
 _REPLAY_AUDIO_STUB_METHOD_NAME = "_replay_audio_stub"
+_PLAY_AUDIO_INTERNAL_METHOD_NAME = "_play_audio_internal"
+_REPLAY_AUDIO_METHOD_NAME = 'replayAudio'
+_PLAY_NEXT_AUDIO_METHOD_NAME = 'play_next_audio'
+_PLAY_PREVIOUS_AUDIO_METHOD_NAME = 'play_previous_audio'
+_css_text = (Path(__file__).parent / "play_only_one.css").read_text()
+_js_text = (Path(__file__).parent / "play_only_one.js").read_text()
+pass
 
 
-def filter_play_list(tags: list[AVTag], play_group_collection: PlayGroupCollection) -> None:
-    """过滤播放列表"""
+def filter_play_list(tags: list[AVTag], play_group_collection: PlayGroupCollection,
+                     web: Optional[MainWebView]) -> None:
+    """过滤播放列表
+    :param tags: 待过滤播放列表
+    :param play_group_collection: 用于过滤播放列表的播放组集合
+    :param web: Web视图，在播放项发生变化时，改变Web视图上的播放按钮的颜色
+    """
     play_indices = set(play_group_collection.get_play_indices())
     for idx in reversed(range(len(tags))):
         if idx not in play_indices:
             del tags[idx]
 
 
+def _replay_audio(self: Reviewer) -> None:
+    getattr(self, _PLAY_AUDIO_INTERNAL_METHOD_NAME)(FetchMode.CURRENT)
+    _paint_current_av_tags(self.card, self.state)
+    if self.state == 'answer' and self.card.replay_question_audio_on_answer_side():
+        _paint_current_av_tags(self.card, "question")
+
+
+def _play_next_audio(self: Reviewer) -> None:
+    getattr(self, _PLAY_AUDIO_INTERNAL_METHOD_NAME)(FetchMode.NEXT)
+    _paint_current_av_tags(self.card, self.state)
+    if self.state == 'answer' and self.card.replay_question_audio_on_answer_side():
+        _paint_current_av_tags(self.card, "question")
+
+
+def _play_previous_audio(self: Reviewer) -> None:
+    getattr(self, _PLAY_AUDIO_INTERNAL_METHOD_NAME)(FetchMode.PREVIOUS)
+    _paint_current_av_tags(self.card, self.state)
+    if self.state == 'answer' and self.card.replay_question_audio_on_answer_side():
+        _paint_current_av_tags(self.card, "question")
+
+
+def _set_play_audio_methods_for_reviewer(reviewer: Reviewer) -> None:
+    setattr(reviewer, _REPLAY_AUDIO_METHOD_NAME, types.MethodType(_replay_audio, reviewer))
+    setattr(reviewer, _PLAY_NEXT_AUDIO_METHOD_NAME, types.MethodType(_play_next_audio, reviewer))
+    setattr(reviewer, _PLAY_PREVIOUS_AUDIO_METHOD_NAME, types.MethodType(_play_previous_audio, reviewer))
+
+
 def on_av_player_will_play_tags(tags: list[anki.sound.AVTag], side: str, context: Any) -> None:
     card: Optional[Card] = None
+    web: Optional[MainWebView] = None
     if isinstance(context, CardLayout):
         card = context.rendered_card
+        web = context.preview_web
     elif isinstance(context, Reviewer):
         card = context.card
+        web = context.web
     elif isinstance(context, Previewer):
         card = context.card()
     if not card:
@@ -39,19 +82,25 @@ def on_av_player_will_play_tags(tags: list[anki.sound.AVTag], side: str, context
     elif tags is card_render_output.answer_av_tags:
         card_render_output.answer_av_tags = tags.copy()
     if tags:
-        filter_play_list(tags, play_group_collection)
-    if isinstance(context, Reviewer):
-        setattr(context, f'{side}_play_group_collection', play_group_collection)
+        play_indices = set(play_group_collection.get_play_indices())
+        for idx in reversed(range(len(tags))):
+            if idx not in play_indices:
+                del tags[idx]
+    if web:
+        setattr(card, 'web', web)
 
-        def replay_audio(self: Reviewer) -> None:
+    if isinstance(context, Reviewer):
+        setattr(card, f'{side}_play_group_collection', play_group_collection)
+
+        def play_audio_internal(self: Reviewer, fetch_mode: FetchMode) -> None:
             from aqt.sound import av_player
             if self.state not in ["question", "answer"]:
                 return
             question_side: bool = self.state == "question"
 
             def get_filtered_av_tags(side_to_play: str) -> list[Union[SoundOrVideoTag, TTSTag]]:
-                pgc: PlayGroupCollection = getattr(context, f'{side_to_play}_play_group_collection')
-                filtered_play_indices = pgc.get_play_indices()
+                pgc: PlayGroupCollection = getattr(card, f'{side_to_play}_play_group_collection')
+                filtered_play_indices = pgc.get_play_indices(fetch_mode)
                 unfiltered_av_tags = self.card.question_av_tags() if side_to_play == 'question' \
                     else self.card.answer_av_tags()
                 return [unfiltered_av_tags[i] for i in filtered_play_indices]
@@ -65,48 +114,59 @@ def on_av_player_will_play_tags(tags: list[anki.sound.AVTag], side: str, context
                     tags_to_replay = get_filtered_av_tags("question") + tags_to_replay
                 av_player.play_tags(tags_to_replay)
 
-        context.replayAudio = types.MethodType(replay_audio, context)
-        setattr(context, _REPLAY_AUDIO_STUB_METHOD_NAME, context.replayAudio)
-
-
-def replay_audio_stub(self) -> None:
-    getattr(self, _REPLAY_AUDIO_STUB_METHOD_NAME)()
+        setattr(context, _PLAY_AUDIO_INTERNAL_METHOD_NAME, types.MethodType(play_audio_internal, context))
+        _set_play_audio_methods_for_reviewer(context)
 
 
 def on_state_shortcuts_will_change(state: str, shortcuts: list[tuple[str, Callable]]) -> None:
     if state != "review":
         return
-    is_reviewer_replay_audio_replaced = False
+    are_play_audio_methods_set_for_reviewer = False
     reviewer: Optional[Reviewer] = None
     for idx, (key, method) in enumerate(shortcuts):
         if str(key).lower() in ['r', 'f5']:
             reviewer = getattr(method, '__self__')
             if isinstance(reviewer, Reviewer):
-                if not is_reviewer_replay_audio_replaced:
-                    reviewer.replayAudio = types.MethodType(replay_audio_stub, reviewer)
-                    is_reviewer_replay_audio_replaced = True
+                if not are_play_audio_methods_set_for_reviewer:
+                    _set_play_audio_methods_for_reviewer(reviewer)
+                    are_play_audio_methods_set_for_reviewer = True
                 shortcuts[idx] = key, reviewer.replayAudio
     if reviewer:
         shortcuts.append(('Ctrl+R', reviewer.replayAudio))
+        shortcuts.append(('n', getattr(reviewer, _PLAY_NEXT_AUDIO_METHOD_NAME)))
+        shortcuts.append(('p', getattr(reviewer, _PLAY_PREVIOUS_AUDIO_METHOD_NAME)))
 
 
 def on_card_will_show(text: str, _card: Card, _kind: str) -> str:
-    text += """
-<script>
-(() => {
-    for (let only_one of document.getElementsByTagName('only-one')) {
-        if(only_one.getElementsByClassName('replay-button soundLink').length > 1){
-            only_one.style.display = 'block';
-            only_one.style.border = '1px solid black';
-            only_one.style.margin = '10px';
-        }
-    }
-})();
-</script>
-"""
+    if '28b408b4-75af-498b-a05b-0cd6d601ee53' not in text:
+        text = f"<style>{_css_text}</style>" + text
+    if '614c0753-ddb7-4818-87df-979fe0670a48' not in text:
+        text += f"<script>{_js_text}</script>"
     return text
+
+
+def on_reviewer_did_show_answer(card: Card) -> None:
+    _paint_current_av_tags(card, "answer")
+
+
+def on_reviewer_did_show_question(card: Card) -> None:
+    _paint_current_av_tags(card, "question")
+
+
+def _paint_current_av_tags(card: Card, side: str) -> None:
+    pgc: PlayGroupCollection = getattr(card, f'{side}_play_group_collection')
+    play_indices: list[int] = pgc.get_play_indices()
+    play_indices_str = ','.join([str(i) for i in play_indices])
+    web: MainWebView = getattr(card, 'web')
+    web.eval(f"""
+if (typeof paint_current_av_tags === "function") {{ 
+    paint_current_av_tags([{play_indices_str}], '{side}');
+}}
+""")
 
 
 gui_hooks.av_player_will_play_tags.append(on_av_player_will_play_tags)
 gui_hooks.state_shortcuts_will_change.append(on_state_shortcuts_will_change)
 gui_hooks.card_will_show.append(on_card_will_show)
+gui_hooks.reviewer_did_show_answer.append(on_reviewer_did_show_answer)
+gui_hooks.reviewer_did_show_question.append(on_reviewer_did_show_question)
