@@ -132,6 +132,9 @@ def on_state_shortcuts_will_change(state: str, shortcuts: list[tuple[str, Callab
         shortcuts.append(('Ctrl+R', reviewer.replayAudio))
         shortcuts.append(('n', getattr(reviewer, _PLAY_NEXT_AUDIO_METHOD_NAME)))
         shortcuts.append(('p', getattr(reviewer, _PLAY_PREVIOUS_AUDIO_METHOD_NAME)))
+        shortcuts.append(('j', reviewer.on_pause_audio))
+        shortcuts.append(('k', reviewer.on_seek_backward))
+        shortcuts.append(('l', reviewer.on_seek_forward))
 
 
 def on_card_will_show(text: str, _card: Card, _kind: str) -> str:
