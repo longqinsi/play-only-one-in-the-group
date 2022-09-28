@@ -147,6 +147,8 @@ def on_card_will_show(text: str, _card: Card, _kind: str) -> str:
 
 def on_reviewer_did_show_answer(card: Card) -> None:
     _paint_current_av_tags(card, "answer")
+    if card.replay_question_audio_on_answer_side():
+        _paint_current_av_tags(card, "question")
 
 
 def on_reviewer_did_show_question(card: Card) -> None:
