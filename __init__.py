@@ -151,6 +151,7 @@ def on_state_shortcuts_will_change(state: str, shortcuts: list[tuple[str, Callab
         shortcuts.append(('l', reviewer.on_seek_backward))
         shortcuts.append((';', reviewer.on_seek_forward))
         shortcuts.append(('ö', reviewer.on_seek_forward))
+        shortcuts.append(('g', reviewer.onReplayRecorded))
         # noinspection PyProtectedMember
         setattr(reviewer, '_contextMenu_orig', reviewer._contextMenu)
         reviewer._contextMenu = types.MethodType(_context_menu, reviewer)
