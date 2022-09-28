@@ -25,7 +25,6 @@ def filter_play_list(tags: list[AVTag], play_group_collection: PlayGroupCollecti
     """过滤播放列表
     :param tags: 待过滤播放列表
     :param play_group_collection: 用于过滤播放列表的播放组集合
-    :param web: Web视图，在播放项发生变化时，改变Web视图上的播放按钮的颜色
     """
     play_indices = set(play_group_collection.get_play_indices())
     for idx in reversed(range(len(tags))):
