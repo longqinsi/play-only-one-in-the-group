@@ -138,11 +138,7 @@ def on_state_shortcuts_will_change(state: str, shortcuts: list[tuple[str, Callab
 
 
 def on_card_will_show(text: str, _card: Card, _kind: str) -> str:
-    if '28b408b4-75af-498b-a05b-0cd6d601ee53' not in text:
-        text = f"<style>{_css_text}</style>" + text
-    if '614c0753-ddb7-4818-87df-979fe0670a48' not in text:
-        text += f"<script>{_js_text}</script>"
-    return text
+    return f"<style>{_css_text}</style>" + text + f"<script>{_js_text}</script>"
 
 
 def on_reviewer_did_show_answer(card: Card) -> None:

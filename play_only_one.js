@@ -1,5 +1,3 @@
-//The following guid is to avoid duplicated import of this file on answer side: 614c0753-ddb7-4818-87df-979fe0670a48
-
 (() => {
     for (let only_one of document.getElementsByTagName('only-one')) {
         if (only_one.getElementsByClassName('replay-button soundLink').length > 1) {
