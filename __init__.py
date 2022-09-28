@@ -164,7 +164,7 @@ def _context_menu(self: Reviewer) -> list[Any]:
             if opt[1] == "Shift+V":
                 opt[1] = "V"
             elif opt[1] == "V":
-                opt[1] = "Shift+V"
+                opt[1] = "G"
     return opts
 
 
