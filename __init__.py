@@ -253,6 +253,9 @@ class CustomRecordDialog(RecordDialog):
         if event.key() == QtCore.Qt.Key.Key_Space:
             self.accept()
             event.accept()
+        elif event.key() == QtCore.Qt.Key.Key_Q:
+            self.reject()
+            event.accept()
         else:
             super().keyPressEvent(event)
 
