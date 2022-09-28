@@ -163,8 +163,32 @@ if (typeof paint_current_av_tags === "function") {{
 """)
 
 
+def on_webview_did_receive_js_message(handled: tuple[bool, Any], message: str, context: Any) -> tuple[bool, Any]:
+    if not isinstance(context, Reviewer):
+        return handled
+    if not message.startswith("play:"):
+        return handled
+    split_result = message.split(':')
+    if len(split_result) != 3:
+        return handled
+    play, side_first_letter, idx_str = split_result
+    if not side_first_letter or side_first_letter not in ['q', 'a']:
+        return handled
+    idx: int
+    try:
+        idx = int(idx_str)
+    except (ValueError, TypeError):
+        return handled
+    side = "question" if side_first_letter == 'q' else "answer"
+    pgc: PlayGroupCollection = getattr(context.card, f'{side}_play_group_collection')
+    if pgc.set_current_index(idx):
+        _paint_current_av_tags(context.card, side)
+    return handled
+
+
 gui_hooks.av_player_will_play_tags.append(on_av_player_will_play_tags)
 gui_hooks.state_shortcuts_will_change.append(on_state_shortcuts_will_change)
 gui_hooks.card_will_show.append(on_card_will_show)
 gui_hooks.reviewer_did_show_answer.append(on_reviewer_did_show_answer)
 gui_hooks.reviewer_did_show_question.append(on_reviewer_did_show_question)
+gui_hooks.webview_did_receive_js_message.append(on_webview_did_receive_js_message)

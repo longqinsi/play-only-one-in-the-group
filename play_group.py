@@ -50,6 +50,18 @@ class OnlyOneGroup(PlayGroup):
                              f"which must be one of FetchMode.CURRENT, FetchMode.NEXT or FetchMode.PREVIOUS.")
         return self.items[self._idx:self._idx + 1]
 
+    def set_current_index(self, idx: int) -> bool:
+        """
+Set the currently playing item for this Only-One-Group
+        :param idx: The index of the item to be set as currently playing.
+        :return: True if the index belongs to this Only One Group; otherwise False.
+        """
+        try:
+            self._idx = self.items.index(idx)
+            return True
+        except ValueError:
+            return False
+
 
 class PlayAllGroup(PlayGroup):
     """Play All Group, plays all the items in the group."""
@@ -76,6 +88,22 @@ class PlayGroupCollection:
         for play_group in self.items:
             result.extend(play_group.get_play_indices(fetch_mode))
         return result
+
+    def set_current_index(self, idx: int) -> bool:
+        """
+Set the currently playing item for one of the Only-One-Groups in the collection
+        :param idx: The index of the item to be set as currently playing.
+        :return: True if the index belongs to any Only One Group; otherwise False.
+        """
+        for play_group in self.items:
+            if isinstance(play_group, PlayAllGroup):
+                continue
+            elif isinstance(play_group, OnlyOneGroup):
+                if play_group.set_current_index(idx):
+                    return True
+                else:
+                    continue
+        return False
 
     @classmethod
     def create(cls, card: Card, side: str):
