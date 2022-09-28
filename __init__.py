@@ -3,12 +3,16 @@ from pathlib import Path
 from typing import Optional, Union, Callable
 
 import anki
+import aqt
+from PyQt6 import QtCore, QtGui
+from PyQt6.QtWidgets import QWidget
 from anki.sound import SoundOrVideoTag, AVTag, TTSTag
 from aqt import gui_hooks
 from aqt.browser.previewer import Previewer
 from aqt.clayout import CardLayout
 from aqt.main import MainWebView
 from aqt.reviewer import Reviewer
+from aqt.sound import RecordDialog
 
 from .play_group import *
 
@@ -128,6 +132,16 @@ def on_state_shortcuts_will_change(state: str, shortcuts: list[tuple[str, Callab
                     _set_play_audio_methods_for_reviewer(reviewer)
                     are_play_audio_methods_set_for_reviewer = True
                 shortcuts[idx] = key, reviewer.replayAudio
+        elif str(key).lower() == 'v':
+            reviewer = getattr(method, '__self__')
+            if isinstance(reviewer, Reviewer):
+                reviewer.onRecordVoice = types.MethodType(_on_record_voice, reviewer)
+                shortcuts[idx] = key, reviewer.onRecordVoice
+        elif str(key).lower() == 'shift+v':
+            reviewer = getattr(method, '__self__')
+            if isinstance(reviewer, Reviewer):
+                shortcuts[idx] = key, reviewer.onReplayRecorded
+
     if reviewer:
         shortcuts.append(('Ctrl+R', reviewer.replayAudio))
         shortcuts.append(('n', getattr(reviewer, _PLAY_NEXT_AUDIO_METHOD_NAME)))
@@ -137,6 +151,44 @@ def on_state_shortcuts_will_change(state: str, shortcuts: list[tuple[str, Callab
         shortcuts.append(('l', reviewer.on_seek_backward))
         shortcuts.append((';', reviewer.on_seek_forward))
         shortcuts.append(('ö', reviewer.on_seek_forward))
+        # noinspection PyProtectedMember
+        setattr(reviewer, '_contextMenu_orig', reviewer._contextMenu)
+        reviewer._contextMenu = types.MethodType(_context_menu, reviewer)
+
+
+def _context_menu(self: Reviewer) -> list[Any]:
+    opts: list[Any] = self._contextMenu_orig()
+    for opt in opts:
+        if isinstance(opt, list) and len(opt) == 3:
+            if opt[1] == "Shift+V":
+                opt[1] = "V"
+            elif opt[1] == "V":
+                opt[1] = "Shift+V"
+    return opts
+
+
+def _on_record_voice(self: Reviewer) -> None:
+    def after_record(path: str) -> None:
+        self._recordedAudio = path
+        self.onReplayRecorded()
+
+    _record_audio(self.mw, self.mw, False, after_record)
+
+
+def _record_audio(
+    parent: QWidget, mw: aqt.main.AnkiQt, encode: bool, on_done: Callable[[str], None]
+) -> None:
+    def after_record(path: str) -> None:
+        if not encode:
+            on_done(path)
+        else:
+            aqt.sound.encode_mp3(mw, path, on_done)
+
+    try:
+        _diag = CustomRecordDialog(parent, mw, after_record)
+    except Exception as e:
+        err_str = str(e)
+        aqt.sound.showWarning(aqt.sound.markdown(aqt.sound.tr.qt_misc_unable_to_record(error=err_str)))
 
 
 def on_card_will_show(text: str, _card: Card, _kind: str) -> str:
@@ -186,6 +238,23 @@ def on_webview_did_receive_js_message(handled: tuple[bool, Any], message: str, c
     if pgc.set_current_index(idx):
         _paint_current_av_tags(context.card, side)
     return handled
+
+
+class CustomRecordDialog(RecordDialog):
+    def __init__(
+        self,
+        parent: QWidget,
+        mw: aqt.main.AnkiQt,
+        on_success: Callable[[str], None]
+    ):
+        RecordDialog.__init__(self, parent, mw, on_success)
+
+    def keyPressEvent(self, event: QtGui.QKeyEvent) -> None:
+        if event.key() == QtCore.Qt.Key.Key_Space:
+            self.accept()
+            event.accept()
+        else:
+            super().keyPressEvent(event)
 
 
 gui_hooks.av_player_will_play_tags.append(on_av_player_will_play_tags)
