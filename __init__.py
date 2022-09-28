@@ -21,8 +21,7 @@ _css_text = (Path(__file__).parent / "play_only_one.css").read_text()
 _js_text = (Path(__file__).parent / "play_only_one.js").read_text()
 
 
-def filter_play_list(tags: list[AVTag], play_group_collection: PlayGroupCollection,
-                     web: Optional[MainWebView]) -> None:
+def filter_play_list(tags: list[AVTag], play_group_collection: PlayGroupCollection) -> None:
     """过滤播放列表
     :param tags: 待过滤播放列表
     :param play_group_collection: 用于过滤播放列表的播放组集合
