@@ -19,7 +19,6 @@ _PLAY_NEXT_AUDIO_METHOD_NAME = 'play_next_audio'
 _PLAY_PREVIOUS_AUDIO_METHOD_NAME = 'play_previous_audio'
 _css_text = (Path(__file__).parent / "play_only_one.css").read_text()
 _js_text = (Path(__file__).parent / "play_only_one.js").read_text()
-pass
 
 
 def filter_play_list(tags: list[AVTag], play_group_collection: PlayGroupCollection,
