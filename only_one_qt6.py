@@ -20,10 +20,10 @@ class CustomRecordDialog(RecordDialog):
         RecordDialog.__init__(self, parent, mw, on_success)
 
     def keyPressEvent(self, event: QtGui.QKeyEvent) -> None:
-        if event.key() == QtCore.Qt.Key.Key_Space or event.key() == QtCore.Qt.Key.Key_Slash:
+        if event.key() == QtCore.Qt.Key.Key_Space or event.key() == QtCore.Qt.Key.Key_Asterisk:
             self.accept()
             event.accept()
-        elif event.key() == QtCore.Qt.Key.Key_Q or event.key() == QtCore.Qt.Key.Key_Asterisk:
+        elif event.key() == QtCore.Qt.Key.Key_Q or event.key() == QtCore.Qt.Key.Key_Minus:
             self.reject()
             event.accept()
         else:
