@@ -130,22 +130,20 @@ def on_state_shortcuts_will_change(state: str, shortcuts: list[tuple[str, Callab
     are_play_audio_methods_set_for_reviewer = False
     reviewer: Optional[Reviewer] = None
     for idx, (key, method) in enumerate(shortcuts):
-        if str(key).lower() in ['r', 'f5']:
+        if hasattr(method, '__self__'):
             reviewer = getattr(method, '__self__')
             if isinstance(reviewer, Reviewer):
-                if not are_play_audio_methods_set_for_reviewer:
-                    _set_play_audio_methods_for_reviewer(reviewer)
-                    are_play_audio_methods_set_for_reviewer = True
-                shortcuts[idx] = key, reviewer.replayAudio
-        elif str(key).lower() == 'v':
-            reviewer = getattr(method, '__self__')
-            if isinstance(reviewer, Reviewer):
-                reviewer.onRecordVoice = types.MethodType(_on_record_voice, reviewer)
-                shortcuts[idx] = key, reviewer.onRecordVoice
-        elif str(key).lower() == 'shift+v':
-            reviewer = getattr(method, '__self__')
-            if isinstance(reviewer, Reviewer):
-                shortcuts[idx] = key, reviewer.onReplayRecorded
+                method_name = method.__name__
+                if method_name == 'replayAudio':
+                    if not are_play_audio_methods_set_for_reviewer:
+                        _set_play_audio_methods_for_reviewer(reviewer)
+                        are_play_audio_methods_set_for_reviewer = True
+                    shortcuts[idx] = key, reviewer.replayAudio
+                elif method_name == 'onRecordVoice':
+                    reviewer = getattr(method, '__self__')
+                    if isinstance(reviewer, Reviewer):
+                        reviewer.onRecordVoice = types.MethodType(_on_record_voice, reviewer)
+                        shortcuts[idx] = key, reviewer.onRecordVoice
 
     if reviewer:
         shortcuts.append(('Ctrl+R', reviewer.replayAudio))
